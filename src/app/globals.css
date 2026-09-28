@@ -1,0 +1,402 @@
+@import "tailwindcss";
+
+/*
+ * Hover solo en dispositivos con puntero fino (ratón / trackpad).
+ * En táctil el :hover se queda "pegado" tras el toque.
+ */
+@custom-variant hover-fine {
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      @slot;
+    }
+  }
+}
+@custom-variant group-hover-fine {
+  @media (hover: hover) and (pointer: fine) {
+    :where(.group):hover & {
+      @slot;
+    }
+  }
+}
+
+@theme {
+  --color-night: #0a1628;
+  --color-night-2: #0d1c33;
+  --color-night-3: #12264a;
+  --color-line: #1d3357;
+  --color-aqua: #1e90ff;
+  --color-sky: #38bdf8;
+  --color-urgent: #ff6b35;
+  --color-urgent-strong: #ff824f;
+  --color-mist: #cbd5e1;
+  --color-fog: #94a3b8;
+
+  --font-display: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  /* Curvas de la skill `animate` (no inventar otras) */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@layer base {
+  html {
+    background: var(--color-night);
+    color: var(--color-mist);
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+    color-scheme: dark;
+  }
+
+  body {
+    background: var(--color-night);
+    font-family: var(--font-sans);
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Anclas: dejar hueco bajo la cabecera fija */
+  [id] {
+    scroll-margin-top: 5.5rem;
+  }
+
+  /* iOS hace zoom en inputs con menos de 16px */
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+
+  button,
+  a,
+  [role="button"],
+  summary,
+  label {
+    touch-action: manipulation;
+  }
+
+  button,
+  [role="button"],
+  summary {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-sky) 35%, transparent);
+    color: white;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-sky);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+}
+
+/* Lenis */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis:not(.lenis-autoToggle).lenis-stopped {
+  overflow: clip;
+}
+.lenis [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+@layer components {
+  /* ── Botones ──────────────────────────────────────────────────────────── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    min-height: 3rem;
+    padding: 0 1.4rem;
+    border-radius: 999px;
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    /* Hover (color) = ease; press (transform) = 120 ms ease-out */
+    transition:
+      background-color 150ms ease,
+      border-color 150ms ease,
+      color 150ms ease,
+      transform 120ms var(--ease-out);
+  }
+  .btn:active {
+    transform: scale(0.97);
+  }
+
+  /* Naranja de urgencia: SOLO para llamar */
+  .btn-call {
+    background: var(--color-urgent);
+    color: var(--color-night);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .btn-call:hover {
+      background: var(--color-urgent-strong);
+    }
+  }
+
+  .btn-ghost {
+    background: rgb(18 38 74 / 0.78);
+    border: 1px solid rgb(255 255 255 / 0.16);
+    color: white;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .btn-ghost:hover {
+      background: rgb(29 51 87 / 0.9);
+      border-color: rgb(255 255 255 / 0.28);
+    }
+  }
+
+  .btn-aqua {
+    background: var(--color-sky);
+    color: var(--color-night);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .btn-aqua:hover {
+      background: #62cdfa;
+    }
+  }
+
+  /* ── Superficies ──────────────────────────────────────────────────────── */
+  .panel {
+    background: linear-gradient(180deg, rgb(19 39 74 / 0.72), rgb(13 28 51 / 0.82));
+    border: 1px solid rgb(148 163 184 / 0.14);
+    border-radius: 1.25rem;
+  }
+
+  .eyebrow {
+    font-family: var(--font-display);
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-sky);
+  }
+
+  .section-title {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+    color: white;
+    font-size: clamp(2rem, 1.2rem + 3vw, 3.4rem);
+    text-wrap: balance;
+  }
+}
+
+/* ── Entradas de sección (IntersectionObserver + transición) ─────────────────
+ * Frecuencia: una vez por visita → animación estándar.
+ * Propósito: evitar un cambio brusco al entrar contenido.
+ * 500 ms (tramo «marketing»), ease-out fuerte, escalonado 60 ms.
+ * Solo se ocultan si hay JS (clase .js puesta en <head>).
+ */
+.js [data-reveal] {
+  opacity: 0;
+  transform: translateY(16px);
+  transition:
+    opacity 500ms var(--ease-out),
+    transform 500ms var(--ease-out);
+  transition-delay: calc(var(--i, 0) * 60ms);
+}
+.js [data-reveal][data-shown] {
+  opacity: 1;
+  transform: none;
+}
+
+/* ── Acordeón FAQ (<details>) ────────────────────────────────────────────────
+ * Ocasional → estándar. Propósito: evitar un salto brusco de contenido.
+ * height tolerado solo en acordeones. 250 ms ease-out.
+ * Mejora progresiva: sin soporte se abre al instante.
+ */
+.faq-item {
+  interpolate-size: allow-keywords;
+}
+.faq-item::details-content {
+  block-size: 0;
+  overflow: clip;
+  opacity: 0;
+  transition:
+    block-size 250ms var(--ease-out),
+    opacity 250ms var(--ease-out),
+    content-visibility 250ms allow-discrete;
+}
+.faq-item[open]::details-content {
+  block-size: auto;
+  opacity: 1;
+}
+.faq-item summary::-webkit-details-marker {
+  display: none;
+}
+.faq-chevron {
+  transition: transform 200ms var(--ease-out);
+}
+.faq-item[open] .faq-chevron {
+  transform: rotate(45deg);
+}
+
+/* ── Carrusel de reseñas ──────────────────────────────────────────────────── */
+.snap-track {
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.snap-track::-webkit-scrollbar {
+  display: none;
+}
+.snap-track > * {
+  scroll-snap-align: start;
+}
+
+/* ── Punto "en directo" del escáner (movimiento constante → linear) ──────── */
+@keyframes live-ping {
+  from {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  to {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+.live-ping {
+  animation: live-ping 1.6s linear infinite;
+}
+
+/* ── Movimiento reducido: menos y más suave, no cero ─────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .js [data-reveal] {
+    transform: none;
+    transition: opacity 500ms ease;
+  }
+  .btn:active {
+    transform: none;
+  }
+  .faq-chevron {
+    transition: none;
+  }
+  /* Acordeón: sin cambio de altura animado (mueve el contenido); solo opacidad */
+  .faq-item::details-content {
+    transition:
+      opacity 200ms ease,
+      content-visibility 200ms allow-discrete;
+  }
+  .live-ping {
+    animation: none;
+    opacity: 0;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* Iconos de servicios: el SVG se retira cuando el canvas 3D ya pinta ese hueco */
+[data-icons3d="ready"] .icon-fallback {
+  opacity: 0;
+}
+
+/* Agua del proceso: vacía de partida solo si hay JS (sin JS se ve llena) */
+.js [data-water] {
+  transform: translateY(-100%);
+}
+
+/* ── Confirmación del formulario ──────────────────────────────────────────────
+ * Evento raro (una vez) → aquí vive el "deleite".
+ * Entrada 400 ms, relleno 700 ms, check 350 ms; texto escalonado 60 ms. ease-out fuerte.
+ * CSS animation: movimiento predeterminado que no se puede disparar dos veces seguidas.
+ */
+@keyframes qs-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+@keyframes qs-rise {
+  from {
+    transform: translateY(100%);
+  }
+}
+@keyframes qs-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+@keyframes qs-text {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+.quote-success {
+  animation: qs-enter 400ms var(--ease-out) both;
+}
+.qs-fill {
+  transform-box: fill-box;
+  animation: qs-rise 700ms var(--ease-out) 300ms both;
+}
+.qs-outline,
+.qs-check {
+  stroke-dasharray: 1;
+}
+.qs-outline {
+  animation: qs-draw 600ms var(--ease-out) 100ms both;
+}
+.qs-check {
+  animation: qs-draw 350ms var(--ease-out) 850ms both;
+}
+.qs-text {
+  animation: qs-text 400ms var(--ease-out) both;
+  animation-delay: calc(900ms + var(--i, 0) * 60ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  .quote-success {
+    animation: qs-fade 200ms ease both;
+  }
+  .qs-fill,
+  .qs-outline,
+  .qs-check,
+  .qs-text {
+    animation: none;
+  }
+}
+@keyframes qs-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Textos legales */
+.legal h2 {
+  margin-top: 2.25rem;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: white;
+}
+.legal ul {
+  list-style: disc;
+  padding-left: 1.25rem;
+}
+.legal li + li {
+  margin-top: 0.4rem;
+}
+.legal strong {
+  color: white;
+}
+
+/* Secciones fuera de pantalla: el navegador no calcula su estilo/layout hasta acercarse.
+ * `auto` recuerda el tamaño real una vez pintadas. ScrollTrigger se refresca al cambiar alturas. */
+.cv-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 900px;
+}
