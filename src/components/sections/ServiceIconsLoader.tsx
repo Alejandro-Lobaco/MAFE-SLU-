@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useExperience } from "@/components/providers/Providers";
 import { canHover } from "@/lib/device-tier";
 
@@ -35,5 +36,7 @@ export function ServiceIconsLoader({ sectionId }: { sectionId: string }) {
   }, [ready, active, sectionId]);
 
   if (!eligible || !near) return null;
-  return <ServiceIcons3D active={active} onReady={() => setReady(true)} />;
+  // Portal a <body>: la sección usa content-visibility (contención de pintado), que convertiría
+  // el canvas "fixed" en relativo a la sección y lo recortaría a ella.
+  return createPortal(<ServiceIcons3D active={active} onReady={() => setReady(true)} />, document.body);
 }

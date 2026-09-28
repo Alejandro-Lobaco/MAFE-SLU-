@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useSyncExternalStore, type ReactNode } from "react";
 import * as THREE from "three";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { PerspectiveCamera, View } from "@react-three/drei";
 import type { IconKey } from "@/config/site";
-import { iconSlots, type IconSlot } from "@/lib/scene-store";
+import { iconSlotEvents, iconSlots, type IconSlot } from "@/lib/scene-store";
 import { damp } from "./smooth";
 
 /**
@@ -13,7 +13,9 @@ import { damp } from "./smooth";
  * (drei <View> recorta con scissor cada hueco). Solo pinta con la sección en pantalla.
  */
 export default function ServiceIcons3D({ active, onReady }: { active: boolean; onReady: () => void }) {
-  const slots = useMemo(() => Array.from(iconSlots.values()), []);
+  // Se recalcula si una tarjeta se vuelve a montar con otro nodo (los huecos siguen al DOM real)
+  const version = useSyncExternalStore(iconSlotEvents.subscribe, iconSlotEvents.version, iconSlotEvents.version);
+  const slots = useMemo(() => (version >= 0 ? Array.from(iconSlots.values()) : []), [version]);
   return (
     <Canvas
       frameloop={active ? "always" : "never"}
@@ -24,7 +26,7 @@ export default function ServiceIcons3D({ active, onReady }: { active: boolean; o
     >
       <Clearer onReady={onReady} />
       {slots.map((slot, i) => (
-        <View key={slot.icon} track={{ current: slot.el }} index={i + 2}>
+        <View key={`${slot.icon}-${version}`} track={{ current: slot.el }} index={i + 2}>
           <PerspectiveCamera makeDefault position={[0, 0, 3.9]} fov={30} />
           <ambientLight intensity={0.55} />
           <hemisphereLight args={["#dbeafe", "#0a1628", 0.6]} />
@@ -251,8 +253,8 @@ function Pool({ mats }: M) {
   }, []);
   useEffect(() => () => water.dispose(), [water]);
   return (
-    <group scale={0.95} rotation={[0.35, 0, 0]}>
-      {/* vaso */}
+    <group scale={0.9} rotation={[1, 0, 0]}>
+      {/* vaso (inclinado hacia la cámara para ver la lámina de agua) */}
       <mesh position={[0, -0.25, 0]} material={mats.steel}>
         <boxGeometry args={[1.7, 0.36, 1.2]} />
       </mesh>

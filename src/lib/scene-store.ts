@@ -40,3 +40,27 @@ export type IconSlot = {
   pointer: { x: number; y: number; hover: boolean };
 };
 export const iconSlots = new Map<string, IconSlot>();
+
+/** Aviso cuando cambian los huecos (una tarjeta se monta de nuevo con otro nodo). */
+const slotListeners = new Set<Listener>();
+let slotsVersion = 0;
+export const iconSlotEvents = {
+  set(key: string, slot: IconSlot) {
+    iconSlots.set(key, slot);
+    slotsVersion++;
+    slotListeners.forEach((l) => l());
+  },
+  delete(key: string, slot: IconSlot) {
+    if (iconSlots.get(key) !== slot) return;
+    iconSlots.delete(key);
+    slotsVersion++;
+    slotListeners.forEach((l) => l());
+  },
+  subscribe(l: Listener) {
+    slotListeners.add(l);
+    return () => {
+      slotListeners.delete(l);
+    };
+  },
+  version: () => slotsVersion,
+};

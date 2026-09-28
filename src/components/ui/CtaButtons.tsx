@@ -14,6 +14,8 @@ export function CallButton({ className = "", size = "md", callLabel = hero.callL
     >
       <PhoneIcon className="size-5 shrink-0" strokeWidth={2.2} />
       <span>{callLabel}</span>
+      {/* espacio real para el nombre accesible ("Llamar ahora 661…"); en flex no ocupa sitio */}
+      {showNumber && " "}
       {showNumber && <span className="hidden font-medium opacity-80 tabular-nums sm:inline">{contact.mobile.display}</span>}
     </a>
   );

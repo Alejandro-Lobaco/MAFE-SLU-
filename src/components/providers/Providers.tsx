@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, startTransition, useContext, useEffect, useState, type ReactNode } from "react";
 import { detectTier, type Tier } from "@/lib/device-tier";
 import { loadGsap } from "@/lib/use-gsap";
 import { sceneState } from "@/lib/scene-store";
@@ -13,10 +13,15 @@ export const useExperience = () => useContext(ExperienceContext);
 export function Providers({ children }: { children: ReactNode }) {
   const [state, setState] = useState<Experience>({ tier: null, reducedMotion: false });
 
-  // Nivel de 3D + preferencia de movimiento (y reaccionar si el usuario la cambia)
+  // Nivel de 3D + preferencia de movimiento (y reaccionar si el usuario la cambia).
+  // En una transición: React termina de hidratar las secciones (<Suspense>) antes de
+  // aplicar el cambio de contexto. Sin ella las descarta y las vuelve a pintar en cliente.
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const update = () => setState({ tier: detectTier(), reducedMotion: mq.matches });
+    const update = () => {
+      const next = { tier: detectTier(), reducedMotion: mq.matches };
+      startTransition(() => setState(next));
+    };
     update();
     mq.addEventListener("change", update);
     return () => mq.removeEventListener("change", update);
@@ -85,12 +90,17 @@ export function Providers({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Entradas de sección: un único IntersectionObserver para todo [data-reveal]
+  // Entradas de sección: un único IntersectionObserver para todo [data-reveal].
+  // Un MutationObserver recoge también los nodos que React cree más tarde, para que
+  // ningún bloque se quede oculto (opacity: 0) por no estar observado.
   useEffect(() => {
-    const els = document.querySelectorAll<HTMLElement>("[data-reveal]:not([data-shown])");
+    const pending = (root: ParentNode) => root.querySelectorAll<HTMLElement>("[data-reveal]:not([data-shown])");
     if (!("IntersectionObserver" in window)) {
-      els.forEach((el) => el.setAttribute("data-shown", ""));
-      return;
+      const showAll = () => pending(document).forEach((el) => el.setAttribute("data-shown", ""));
+      showAll();
+      const mo = new MutationObserver(showAll);
+      mo.observe(document.body, { childList: true, subtree: true });
+      return () => mo.disconnect();
     }
     const io = new IntersectionObserver(
       (entries) => {
@@ -102,8 +112,21 @@ export function Providers({ children }: { children: ReactNode }) {
       },
       { rootMargin: "0px 0px -8% 0px", threshold: 0.12 },
     );
-    els.forEach((el) => io.observe(el));
-    return () => io.disconnect();
+    pending(document).forEach((el) => io.observe(el));
+    const mo = new MutationObserver((records) => {
+      for (const r of records) {
+        r.addedNodes.forEach((node) => {
+          if (!(node instanceof HTMLElement)) return;
+          if (node.matches("[data-reveal]:not([data-shown])")) io.observe(node);
+          pending(node).forEach((el) => io.observe(el));
+        });
+      }
+    });
+    mo.observe(document.body, { childList: true, subtree: true });
+    return () => {
+      mo.disconnect();
+      io.disconnect();
+    };
   }, []);
 
   return <ExperienceContext.Provider value={state}>{children}</ExperienceContext.Provider>;

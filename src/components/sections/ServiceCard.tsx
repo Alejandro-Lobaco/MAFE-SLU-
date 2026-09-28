@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import type { IconKey } from "@/config/site";
 import { ArrowRightIcon } from "@/components/ui/Icons";
 import { ServiceIconSvg } from "@/components/ui/ServiceIconSvg";
-import { iconSlots, type IconSlot } from "@/lib/scene-store";
+import { iconSlotEvents, type IconSlot } from "@/lib/scene-store";
 
 type Item = { icon: IconKey; title: string; text: string; bullets: string[]; featured?: boolean };
 
@@ -33,14 +33,13 @@ export function ServiceCard({ item, index }: { item: Item; index: number }) {
     update();
     fine.addEventListener("change", update);
     reduce.addEventListener("change", update);
-    if (slot.current) {
-      entry.current = { el: slot.current, icon: item.icon, pointer: { x: 0, y: 0, hover: false } };
-      iconSlots.set(item.icon, entry.current);
-    }
+    const mine: IconSlot | null = slot.current ? { el: slot.current, icon: item.icon, pointer: { x: 0, y: 0, hover: false } } : null;
+    entry.current = mine;
+    if (mine) iconSlotEvents.set(item.icon, mine);
     return () => {
       fine.removeEventListener("change", update);
       reduce.removeEventListener("change", update);
-      iconSlots.delete(item.icon);
+      if (mine) iconSlotEvents.delete(item.icon, mine);
     };
   }, [item.icon]);
 
